@@ -1,0 +1,191 @@
+---
+title: "Insurance Cost Analysis"
+format: html
+---
+
+The project aims to analyze operations on an insurance database that uses the below mentioned parameters.
+
+| Parameter | Description | Content Type |
+|------------------------|------------------------|------------------------|
+| age | Age in years | integer |
+| gender | Male or Female | integer (1 or 2) |
+| bmi | Body mass index | float |
+| no_of_children | Number of children | integer |
+| smoke | Whether smoker or not | integer (0 or 1) |
+| region | Which US region - NW, NE, SW, SE | Interger (1,2,3 or 4 respectively) |
+| charges | Annual Insurance charges in USD | float |
+
+**Objectives** - Run exploratory data analysis (EDA) and identify the attributes that most affect the charges. - Develop a single variable and multi variable Linear Regression models for predicting charges. - Use Ridge regression to refine the performance of Linear regression models.
+
+**Libraries**
+
+```{python}
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.linear_model import LinearRegression, Ridge
+from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler, PolynomialFeatures
+```
+
+**Load Data**
+
+```{python}
+# Load the insurance dataset
+#filepath = 'https://cf-courses-data.s3.us.cloud-object-storage.appdomain.cloud/IBMDeveloperSkillsNetwork-DA0101EN-Coursera/medical_insurance_dataset.csv'
+#insurance_data = pd.read_csv(filepath, header=None)
+#insurance_data.head()
+```
+
+**Export the data to csv file**
+
+```{python}
+#insurance_data.to_csv('/Users/hopemutema/Documents/Spring 2026/Python Practice/Data Analysis Python/insurance_data.csv')
+```
+
+**Read the data from csv file**
+
+```{python}
+insurance_data = pd.read_csv('/Users/hopemutema/Documents/Spring 2026/Python Practice/Data Analysis Python/insurance_data.csv', index_col=0)
+```
+
+**First 5 rows of the dataset**
+
+```{python}
+insurance_data.head(5)
+```
+
+**Adding headers to the dataframe**
+
+```{python}
+headers = ["age","gender","bmi","no_of_children","smoke","region","charges"]
+insurance_data.columns = headers
+```
+
+**View dataset**
+
+```{python}
+insurance_data.head(5)
+```
+
+**Replacing ? with NaN values**
+
+```{python}
+insurance_data.replace('?', np.nan, inplace=True)
+```
+
+**Data Wrangling**
+
+**Identify missing values**
+
+```{python}
+insurance_data.info()
+```
+
+**Dealing with missing values** - for continuous variables we will replace missing values with mean - for categorical variables we will replace missing values with mode - updating data types
+
+```{python}
+#age is a continuous variable, replace missing values with mean
+mean_age = insurance_data["age"].astype("float").mean(axis=0)
+insurance_data["age"].replace(np.nan, mean_age, inplace=True)
+
+# smoker is a categorical variable, replace missing values with mode
+is_smoker = insurance_data["smoke"].value_counts().idxmax()
+insurance_data["smoke"].replace(np.nan, is_smoker, inplace=True)
+
+
+#Updating data types
+insurance_data[["age","smoker"]] = insurance_data[["age","smoke"]].astype("int")
+
+insurance_data.info()
+```
+
+**Updating the charges column so that the values will be rounded to 2 decimal places**
+
+```{python}
+insurance_data[["charges"]] = np.round(insurance_data[["charges"]], 2)
+insurance_data.head(5)
+```
+
+**Exploratory Data Analysis (EDA)** - Regression plot for charges with respect to bmi
+
+```{python}
+sns.regplot(x="bmi", y="charges", data=insurance_data, line_kws={"color":"red"})
+plt.ylim(0,)
+```
+
+**Box plot for charges with respect to smoker**
+
+```{python}
+sns.boxplot(x="smoke", y="charges", data=insurance_data)
+```
+
+**Print the correlation matrix**
+
+```{python}
+insurance_data.corr()
+```
+
+**Model Development** By using the smoker attribute we will develop single variable linear regression model to predict insurance charges.
+
+```{python}
+X= insurance_data[["smoke"]]
+Y= insurance_data["charges"]
+lm = LinearRegression()
+lm.fit(X,Y)
+#R^2 value
+print(lm.score(X,Y))
+```
+
+Fitting the linear regression model that may be used to predict insurance charges based on all the features provided in the dataset.
+
+```{python}
+X_multi = insurance_data[["age","bmi","no_of_children","smoke"]]
+Y_multi = insurance_data["charges"]
+lm_multi = LinearRegression()
+lm_multi.fit(X_multi,Y_multi)
+#R^2 value
+print(lm_multi.score(X_multi,Y_multi))
+```
+
+Creating a training pipeline to create a model that can predict insurance charges based on all the features provided in the dataset.
+
+```{python}
+Input = [("scale", StandardScaler()), ("polynomial", PolynomialFeatures(include_bias=False)), ("model", LinearRegression())]
+pipe = Pipeline(Input)
+X_multi = X_multi.astype(float)
+pipe.fit(X_multi, Y_multi)
+ypipe = pipe.predict(X_multi)
+print(r2_score(Y_multi, ypipe))
+```
+
+**Model Refinement**
+
+Split the data into training and testing subsets, 20% test size.
+
+```{python}
+x_train, x_test, y_train, y_test = train_test_split(X_multi, Y_multi, test_size=0.2, random_state=1)
+```
+
+Initializing the Ridge regressor that used hyperparameter alpha of value 0.1 and fitting the model using training data.
+
+```{python}
+RidgeModel = Ridge(alpha=0.1)
+RidgeModel.fit(x_train, y_train)
+yhat = RidgeModel.predict(x_test)
+print(r2_score(y_test, yhat))
+```
+
+Applying polynomial transformation to the training parameters with degree 2. using this transformed feature set to fit the same regression model as above, using the training subset.
+
+```{python}
+pr = PolynomialFeatures(degree=2)
+x_train_pr = pr.fit_transform(x_train)
+x_test_pr = pr.fit_transform(x_test)
+RidgeModel.fit(x_train_pr, y_train)
+yhat_pr = RidgeModel.predict(x_test_pr)
+print(r2_score(y_test, yhat_pr))
+```
